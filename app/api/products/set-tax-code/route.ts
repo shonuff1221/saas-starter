@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-
-import { authOptions } from '@/lib/auth/auth-options';
 import { setProductTaxCode } from '@/lib/payments/stripe';
+import { getSession } from '@/lib/auth/session';
 
 export async function POST(req: Request) {
   try {
     // Check authentication
-    const session = await getServerSession(authOptions);
-    
+    const session = await getSession();
+
     if (!session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
