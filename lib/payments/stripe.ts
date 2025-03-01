@@ -39,7 +39,7 @@ export async function createCheckoutSession({
     client_reference_id: user.id.toString(),
     allow_promotion_codes: true,
     subscription_data: {
-      trial_period_days: 14
+      trial_period_days: 1
     }
   });
 
@@ -167,13 +167,50 @@ export async function getStripeProducts() {
     expand: ['data.default_price']
   });
 
-  return products.data.map((product) => ({
+  // Log all products and their tax codes for debugging
+  console.log('All products tax codes:', products.data.map(p => ({ id: p.id, name: p.name, tax_code: p.tax_code })));
+
+  // Filter products to only include those with tax code for tangible goods
+  const filteredProducts = products.data.filter(product => 
+    product.tax_code === 'txcd_99999999'
+  );
+
+  // If no products with the specified tax code are found, return all products
+  const productsToReturn = filteredProducts.length > 0 ? filteredProducts : products.data;
+  
+  console.log('Returning products:', productsToReturn.length);
+
+  return productsToReturn.map((product) => ({
     id: product.id,
     name: product.name,
     description: product.description,
     defaultPriceId:
       typeof product.default_price === 'string'
         ? product.default_price
-        : product.default_price?.id
+        : product.default_price?.id,
+    images: product.images,
+    metadata: product.metadata,
+    unitAmount: typeof product.default_price === 'object' ? product.default_price?.unit_amount : null,
+    currency: typeof product.default_price === 'object' ? product.default_price?.currency : null,
+    taxCode: product.tax_code
   }));
+}
+
+/**
+ * Sets the tax code for a product in Stripe
+ * @param productId The ID of the product to update
+ * @param taxCode The tax code to set (e.g., 'txcd_99999999' for tangible goods)
+ * @returns The updated product
+ */
+export async function setProductTaxCode(productId: string, taxCode: string) {
+  try {
+    const updatedProduct = await stripe.products.update(productId, {
+      tax_code: taxCode,
+    });
+    
+    return updatedProduct;
+  } catch (error) {
+    console.error('Error setting product tax code:', error);
+    throw error;
+  }
 }
